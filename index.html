@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reaction Time Game with Chicken</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.3s ease;
+      background-color: #111;
+      color: white;
+      overflow: hidden;
+    }
+
+    body.ready {
+      background-color: red;
+    }
+
+    body.go {
+      background-color: green;
+    }
+
+    #overlay {
+      text-align: center;
+      z-index: 2;
+    }
+
+    input {
+      padding: 0.5em;
+      font-size: 1rem;
+      border: none;
+      border-radius: 5px;
+      margin-bottom: 1em;
+    }
+
+    #game-area {
+      font-size: 2rem;
+      cursor: pointer;
+      padding: 1em 2em;
+      border-radius: 10px;
+      background-color: #222;
+      transition: background 0.3s;
+    }
+
+    #leaderboard {
+      margin-top: 2em;
+      text-align: center;
+      display: none;
+    }
+
+    #leaderboard h3 {
+      margin-bottom: 0.5em;
+    }
+
+    #leaderboard ol {
+      list-style: decimal;
+      padding-left: 1.2em;
+      text-align: left;
+    }
+
+    #chicken {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      font-size: 30px;
+      cursor: pointer;
+      display: none;
+      z-index: 5;
+    }
+
+    #chicken-points {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #333;
+      padding: 0.5em 1em;
+      border-radius: 10px;
+      font-size: 1rem;
+    }
+
+    #use-points {
+      margin-top: 0.5em;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: underline;
+      color: #aaa;
+    }
+
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <input type="text" id="username" placeholder="Enter your name" />
+  <div id="game-area">Click or press Space to Start</div>
+</div>
+
+<div id="leaderboard">
+  <h3>Leaderboard</h3>
+  <ol id="score-list"></ol>
+</div>
+
+<div id="chicken-points">
+  🐔 Points: <span id="points-count">0</span>
+  <div id="use-points">Use 5 to clear leaderboard</div>
+</div>
+
+<div id="chicken">🐔</div>
+
+<script>
+  const usernameInput = document.getElementById('username');
+  const gameArea = document.getElementById('game-area');
+  const body = document.body;
+  const leaderboard = document.getElementById('leaderboard');
+  const scoreList = document.getElementById('score-list');
+  const chicken = document.getElementById('chicken');
+  const pointsDisplay = document.getElementById('points-count');
+  const usePointsBtn = document.getElementById('use-points');
+
+  let gameState = 'idle';
+  let timeout = null;
+  let startTime = null;
+  let chickenPoints = 0;
+
+  function startGame() {
+    const name = usernameInput.value.trim();
+    if (!name) {
+      alert("Enter your name first!");
+      return;
+    }
+
+    leaderboard.style.display = 'none';
+    chicken.style.display = 'none';
+    gameState = 'waiting';
+    body.className = 'ready';
+    gameArea.textContent = "Get Ready...";
+
+    const delay = Math.random() * 2000 + 2000;
+    timeout = setTimeout(() => {
+      gameState = 'go';
+      body.className = 'go';
+      gameArea.textContent = "CLICK or press SPACE!";
+      startTime = Date.now();
+    }, delay);
+  }
+
+  function tooSoon() {
+    clearTimeout(timeout);
+    gameState = 'idle';
+    body.className = '';
+    gameArea.textContent = "Too Soon! Click or press Space to try again.";
+  }
+
+  function endGame() {
+    const reactionTime = Date.now() - startTime;
+    const name = usernameInput.value.trim();
+    body.className = '';
+    gameArea.textContent = `Your time: ${reactionTime} ms. Click or press Space to try again.`;
+    saveScore(name, reactionTime);
+    showLeaderboard();
+    showChicken();
+    gameState = 'idle';
+    startTime = null;
+  }
+
+  function saveScore(name, time) {
+    const scores = JSON.parse(localStorage.getItem('reactionScores') || '[]');
+    scores.push({ name, time });
+    scores.sort((a, b) => a.time - b.time);
+    localStorage.setItem('reactionScores', JSON.stringify(scores.slice(0, 5)));
+  }
+
+  function showLeaderboard() {
+    const scores = JSON.parse(localStorage.getItem('reactionScores') || '[]');
+    scoreList.innerHTML = '';
+    scores.forEach(score => {
+      const li = document.createElement('li');
+      li.textContent = `${score.name}: ${score.time} ms`;
+      scoreList.appendChild(li);
+    });
+    leaderboard.style.display = 'block';
+  }
+
+  function handleInput() {
+    if (gameState === 'idle') {
+      startGame();
+    } else if (gameState === 'waiting') {
+      tooSoon();
+    } else if (gameState === 'go') {
+      endGame();
+    }
+  }
+
+  function showChicken() {
+    const x = Math.random() * (window.innerWidth - 50);
+    const y = Math.random() * (window.innerHeight - 50);
+    chicken.style.left = `${x}px`;
+    chicken.style.top = `${y}px`;
+    chicken.style.display = 'block';
+  }
+
+  function updatePoints() {
+    pointsDisplay.textContent = chickenPoints;
+  }
+
+  gameArea.addEventListener('click', handleInput);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+      e.preventDefault();
+      handleInput();
+    }
+  });
+
+  chicken.addEventListener('click', () => {
+    chickenPoints++;
+    updatePoints();
+    chicken.style.display = 'none';
+  });
+
+  usePointsBtn.addEventListener('click', () => {
+    if (chickenPoints >= 5) {
+      chickenPoints -= 5;
+      updatePoints();
+      localStorage.removeItem('reactionScores');
+      leaderboard.style.display = 'none';
+      alert("Leaderboard cleared!");
+    } else {
+      alert("Not enough Chicken Points!");
+    }
+  });
+
+  updatePoints(); // init display
+</script>
+
+</body>
+</html>
